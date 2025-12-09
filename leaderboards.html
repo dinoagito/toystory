@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Buzz Blast - Leaderboards</title>
+    <link rel="stylesheet" href="lobby.css">
+    <link rel="stylesheet" href="leaderboards.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <audio id="bg-music" src="audios/bg-music.mp3" autoplay loop></audio>
+
+    <div id="leaderboard-container">
+        <center><h1>LEADERBOARDS</h1></center>
+
+        <table id="high-scores-table">
+            <thead>
+                <tr>
+                    <th>NAME</th>
+                    <th>SCORE</th>
+                </tr>
+            </thead>
+            <tbody id="scores-body">
+            </tbody>
+        </table>
+
+        <center><button id="menu-btn">BACK TO LOBBY</button></center>
+    </div>
+
+    <script src="leaderboards.js"></script>
+</body>
+</html>

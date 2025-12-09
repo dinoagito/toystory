@@ -1,0 +1,71 @@
+#leaderboard-container {
+    padding: 40px;
+    border-radius: 15px;
+    max-width: 600px;
+    width: 90%;
+    margin: auto;
+}
+
+#leaderboard-container h1 {
+    color: #86e2e2;
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(20px, 5vw, 40px);
+    margin-bottom: 30px;
+    text-shadow: 0 0 10px #126fcb;
+}
+
+#high-scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: clamp(10px, 2vw, 14px);
+    color: #000000;
+}
+
+#high-scores-table th, 
+#high-scores-table td {
+    border: 1px solid #126fcb;
+    padding: 10px 15px;
+    text-align: left;
+}
+
+#high-scores-table th {
+    background-color: #126fcb;
+    color: black;
+}
+
+#high-scores-table tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+#high-scores-table tr:hover {
+    background-color: rgba(18, 111, 203, 0.2);
+}
+
+#menu-btn {
+    background-color: #126fcb;
+    color: black;
+    border: 2px solid #07315b;
+    border-radius: 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(10px, 2vw, 14px);
+    position: center;
+    padding: 15px 30px;
+    cursor: pointer;
+    transition: 0.2s;
+    margin-top: 20px;
+}
+
+#menu-btn:hover {
+    background-color: #07315b;
+    color: #86e2e2;
+    border-color: #126fcb;
+    box-shadow: 0 0 10px #86e2e2;
+}
+
+@media (max-width: 480px) {
+    html { 
+        scroll-behavior: smooth;
+        font-size: 12px;
+    }
+}
