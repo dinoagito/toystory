@@ -1,6 +1,6 @@
 body {
     font-family: 'Press Start 2P', monospace;
-    background-image: url("images/toybg.jpg");
+    background-image: url("images/toystory-bg.gif");
     background-size: cover;
     background-position: center;
     margin: 0;
@@ -14,13 +14,14 @@ body {
 }
 
 #si-game-area {
-    width: 80vw; 
-    max-width: 800px;
-    height: 100vh; 
+    width: 80vw; /* Use 80% of viewport width */
+    max-width: 2000px; /* Increase max width for a wider field */
+    height: 90vh; /* Use 90% of viewport height */
     position: fixed; 
     top: 50%;
-    left: 70%;
-    transform: translate(-50%, -50%); 
+    left: 50%; /* Center horizontally */
+    transform: translate(-50%, -50%); /* Center perfectly */
+    border: 2px solid #126fcb; /* Optional: Add border for visibility */
 }
 
 #hud {
@@ -94,4 +95,11 @@ body {
     height: 100%;
     background-color: #c92929;
     transition: width 0.3s ease-out; 
+}
+
+@media (max-width: 480px) {
+    html { 
+        scroll-behavior: smooth;
+        font-size: 12px;
+    }
 }
