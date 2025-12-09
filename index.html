@@ -1,25 +1,29 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Buzz Blast</title>
-    <link rel="stylesheet" href="lobby.css">
-    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Buzz Blast</title>
+    <link rel="stylesheet" href="lobby.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-    <audio id="bg-music" src="audios/bg-music.mp3" autoplay loop></audio>
+    <audio id="bg-music" src="audios/bg-music.mp3" autoplay loop></audio>
 
-    <div id="lobby">
-        <h1>Buzz Blast</h1>
+    <div id="lobby">
+        <h1>Buzz Blast</h1>
+        <div id="name-input">
+            <label for="player-name"><h2>ENTER NAME:</h2></label>
+            <input type="text" id="player-name" maxlength="10">
+        </div>
 
-        <div id="lobby-buttons">
-            <button id="play-btn">Play</button>
-            <button id="instructions-btn">Instructions</button>
-        </div>
-    </div>
+        <div id="lobby-buttons">
+            <button id="play-btn">Start</button>
+            <button id="leaderboards-btn">Leaderboards</button> 
+            <button id="instructions-btn">Instructions</button>
+        </div>
+    </div>
 
-    <script src="lobby.js"></script>
+    <script src="lobby.js"></script>
 </body>
-
 </html>
