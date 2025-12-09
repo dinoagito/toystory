@@ -4,7 +4,7 @@ const ASSETS = {
     playerImg: "images/buzzship.png",
     enemyImg: "images/villain.png",
     explosion: "images/explosion.gif",
-    playerBulletImg: "images/missile-unscreen.gif",
+    playerBulletImg: "images/player-missile-unscreen.gif", 
     enemyBulletImg: "images/enemy-missile-unscreen.gif",
     mothershipImg: "images/boss.png",
 };
@@ -12,30 +12,32 @@ const ASSETS = {
 const CONFIG = {
     fpsInterval: 1000 / 60,
     BASE_WIDTH: 800,
-    playerSpeed: 3,
-    playerWidth: 100,
-    playerHeight: 70,
+    playerSpeed: 5,
+    playerWidth: 70,
+    playerHeight: 60,
     playerStartLives: 3,
-    bulletSpeed: 5,
-    enemyBulletSpeed: 4,
-    enemyCols: 7,
-    enemyRowsPerLevel: [2, 3, 4],
-    enemyWidth: 70,
-    enemyHeight: 50,
-    enemySpacingX: 90,
-    enemySpacingY: 60,
-    enemyStartX: 10,
-    enemyStartY: 80,
-    enemyMoveSpeedBase: 0.9,
-    enemyDropOnEdge: 20,
-    enemyShootIntervalMs: 1200,
-    mothershipHP: 25,
-    mothershipSizeFactor: 3.5,
-    mothershipShootIntervalMs: 10,
-    mothershipBurstCount: 1,
-    mothershipBurstSize: 200,
-    mothershipBurstGapMs: 5000,
-    maxPlayerBullets: 3,
+    bulletSpeed: 10, 
+    enemyBulletSpeed: 6,
+    enemyCols: 8,
+    enemyMaxRows: 6,
+    enemyWidth: 50,
+    enemyHeight: 40,
+    enemySpacingX: 65, 
+    enemySpacingY: 55, 
+    enemyStartX: 50, 
+    enemyStartY: 50, 
+    enemyMoveSpeedBase: 1.5,
+    enemyShiftDown: 30, 
+    enemyShootIntervalMs: 2000,
+    
+    // Mothership/Boss logic
+    mothershipHP: 50,
+    mothershipSizeFactor: 2.0,
+    mothershipSpeed: 3.0, 
+    mothershipRespawnDelay: 5000, 
+    mothershipShootInterval: 5000, 
+    
+    maxPlayerBullets: 5,
     bombCount: 1,
     bombKillPercentage: 0.7
 };
@@ -49,10 +51,12 @@ const State = {
     bullets: [],
     enemies: [],
     enemyBullets: [],
+    
     mothership: null,
+    mothershipDirection: 1, 
+    mothershipDeathTime: 0, 
     lastMothershipShootTime: 0,
-    mothershipShotsFired: 0,
-    mothershipInCooldown: false,
+    
     score: 0,
     lives: CONFIG.playerStartLives,
     level: 1,
@@ -60,11 +64,18 @@ const State = {
     paused: false,
     lastEnemyShootTime: 0,
     bombsLeft: CONFIG.bombCount,
-    keys: {}
+    keys: {},
+    
+    enemyDirection: 1, 
+    enemyWaveOffset: 0, 
+    
+    spawnQueue: [], 
+    lastSpawnTime: 0,
+    playerName: 'Pilot', 
 };
 
 class GameObject {
-    constructor(imagePath, x, y, baseW, baseH, gameArea) { 
+    constructor(imagePath, x, y, baseW, baseH, gameArea) {
         this.baseW = baseW;
         this.baseH = baseH;
         this.gameArea = gameArea;
@@ -95,266 +106,254 @@ class GameObject {
     }
 
     remove() {
-        try { this.el.remove(); } catch (e) {}   
+        try { this.el.remove(); } catch (e) {}
     }
 
-    /** Returns the collision bounding box. */
     getRect() {
-        return { 
+        return {
             left: this.x,
             top: this.y,
             right: this.x + this.w,
-            bottom: this.y + this.h 
+            bottom: this.y + this.h
         };
     }
 }
 
-class Player extends GameObject { 
-    constructor(gameArea) { 
-        const baseW = CONFIG.playerWidth; 
+class Player extends GameObject {
+    constructor(gameArea) {
+        const baseW = CONFIG.playerWidth;
         const baseH = CONFIG.playerHeight;
-        const startX = 30;
-        const startY = (State.height - baseH) / 2; 
+        const startX = (State.width - baseW) / 2;
+        const startY = State.height - baseH - 30;
 
-        super(ASSETS.playerImg, startX, startY, baseW, baseH, gameArea); 
-        this.baseXOffset = startX; 
-        this.isInvincible = false; 
+        super(ASSETS.playerImg, startX, startY, baseW, baseH, gameArea);
+        this.el.style.transform = ''; 
     }
 
-    update(playerSpeedScaled, maxHeight, maxWidth) { // Moves player based on input
-        if (!this.alive) return; // Stop if player is dead
-
-        if (State.keys["arrowup"] || State.keys["w"]) { 
-            this.y = clamp(this.y - playerSpeedScaled, 0, maxHeight); 
+    update(playerSpeedScaled, maxHeight, maxWidth) {
+        if (!this.alive) return;
+        if (State.keys["arrowleft"] || State.keys["a"]) {
+            this.x = clamp(this.x - playerSpeedScaled, 0, maxWidth);
         }
-        if (State.keys["arrowdown"] || State.keys["s"]) { 
-            this.y = clamp(this.y + playerSpeedScaled, 0, maxHeight); 
-        }
-
-        if (State.keys["arrowleft"] || State.keys["a"]) { 
-            this.x = clamp(this.x - playerSpeedScaled, 0, maxWidth); 
-        }
-        if (State.keys["arrowright"] || State.keys["d"]) { 
-            this.x = clamp(this.x + playerSpeedScaled, 0, maxWidth); 
+        if (State.keys["arrowright"] || State.keys["d"]) {
+            this.x = clamp(this.x + playerSpeedScaled, 0, maxWidth);
         }
     }
 
-    draw() { // Updates player element on screen
-        const startX = this.baseXOffset * this.scaleFactor;
-        this.x = clamp(this.x, startX, State.width - this.w); 
-        this.el.style.left = this.x + "px";
-
-        this.y = clamp(this.y, 0, State.height - this.h); 
-        this.el.style.top = this.y + "px";
-        
-        this.el.style.width = this.w + "px"; 
-        this.el.style.height = this.h + "px";
+    draw() {
+        this.x = clamp(this.x, 0, State.width - this.w);
+        super.draw();
     }
 }
 
 class Bullet extends GameObject {
     constructor(x, y, isPlayer, gameArea) {
-        // Player/Enemy bullets have different images and fixed small collision boxes
         const isPlayerImg = isPlayer ? ASSETS.playerBulletImg : ASSETS.enemyBulletImg;
-        const collisionW = isPlayer ? 10 : 14; 
-        const collisionH = isPlayer ? 18 : 24; 
-        const visualW = isPlayer ? 80 : 60;
-        const visualH = isPlayer ? 50 : 40;
+        const collisionW = isPlayer ? 10 : 14;
+        const collisionH = isPlayer ? 18 : 24;
+        const visualW = isPlayer ? 30 : 30; 
+        const visualH = isPlayer ? 50 : 50; 
+        
         super(isPlayerImg, x, y, visualW, visualH, gameArea);
         this.isPlayer = isPlayer;
-        this.collisionW = collisionW * this.scaleFactor;    
-        this.collisionH = collisionH * this.scaleFactor; 
-        this.el.style.left = x + "px"; 
-        this.el.style.top = y + "px"; 
+        this.collisionW = collisionW * this.scaleFactor;
+        this.collisionH = collisionH * this.scaleFactor;
+        this.el.style.transform = '';
     }
 
     update() {
         const speed = this.isPlayer ? CONFIG.bulletSpeed : CONFIG.enemyBulletSpeed;
         const speedScaled = speed * this.scaleFactor;
-
-        // Player bullets move right, Enemy bullets move left
-        this.x += this.isPlayer ? speedScaled : -speedScaled;
+        this.y += this.isPlayer ? -speedScaled : speedScaled;
     }
 
-    draw() {
-        this.el.style.width = this.w + "px";
-        this.el.style.height = this.h + "px";
-        this.el.style.left = this.x + "px";
-        this.el.style.top = this.y + "px";
-    }
-
-    /** Overrides base getRect to use the small, scaled collision box. real “hit area” of the bullet */
     getRect() {
-        return { 
-            left: this.x, top: this.y, 
-            right: this.x + this.collisionW, bottom: this.y + this.collisionH 
+        return {
+            left: this.x + (this.w - this.collisionW)/2, 
+            top: this.y,
+            right: this.x + (this.w + this.collisionW)/2, 
+            bottom: this.y + this.h
         };
     }
 }
 
-// Enemy class inherits from GameObject, meaning it gets all basic movement, drawing, and scaling functions
 class Enemy extends GameObject {
     constructor(x, y, gameArea) {
-        // Call the parent (GameObject) constructor to set sprite, position, size, and game area
         super(ASSETS.enemyImg, x, y, CONFIG.enemyWidth, CONFIG.enemyHeight, gameArea);
-        this.baseX = x;
-        this.baseY = y; 
-        this.scoreValue = 10; 
+        this.scoreValue = 10;
+        this.el.style.transform = '';
+        this.targetX = x;
+        this.targetY = y;
+        this.x = State.width / 2;
+        this.y = -50;
+        this.spawned = false; 
+    }
+    
+    draw() {
+        const wave = Math.sin(State.enemyWaveOffset) * (10 * this.scaleFactor);
+        this.el.style.left = (this.x + wave) + "px";
+        this.el.style.top = this.y + "px";
+        this.el.style.width = this.w + "px";
+        this.el.style.height = this.h + "px";
+    }
+    
+    getRect() {
+        const wave = Math.sin(State.enemyWaveOffset) * (10 * this.scaleFactor);
+        return {
+            left: this.x + wave,
+            top: this.y,
+            right: this.x + wave + this.w,
+            bottom: this.y + this.h
+        };
     }
 }
 
 class Mothership extends GameObject {
-    constructor(x, y, gameArea) {
-        // Calculate mothership size based on player size (scaled)
+    constructor(gameArea) {
         const baseW = CONFIG.playerWidth * CONFIG.mothershipSizeFactor;
         const baseH = CONFIG.playerHeight * CONFIG.mothershipSizeFactor * 0.7;
-        // Call GameObject constructor → sets sprite, pos, width/height, scaling, etc.
-        super(ASSETS.mothershipImg, x, y, baseW, baseH, gameArea);
+        
+        // FIX: Start Y lower (60) so the HP bar above it is visible (not cut off at top)
+        const startY = 60 * scaleFactor;
+        // Start centered for the boss fight
+        const startX = (State.width - baseW) / 2; 
+
+        super(ASSETS.mothershipImg, startX, startY, baseW, baseH, gameArea);
         this.hp = CONFIG.mothershipHP;
         this.maxHp = CONFIG.mothershipHP;
-        this.vy = 0;
-        this.scoreValue = 100;
-
-        // Create HP Bar UI element
-        this.setupHPBar(x, y);
+        this.vx = CONFIG.mothershipSpeed * scaleFactor; 
+        this.scoreValue = 500;
+        this.el.style.transform = ''; 
+        this.setupHPBar();
     }
 
-    // Creates the red HP bar floating above the mothership
-    setupHPBar(x, y) {
+    setupHPBar() {
         this.hpEl = document.createElement('div');
         this.hpEl.className = 'mothership-hp-container';
-
         this.hpBar = document.createElement('div');
         this.hpBar.className = 'mothership-hp-bar';
-
         this.hpEl.appendChild(this.hpBar);
         this.gameArea.appendChild(this.hpEl);
+        this.hpEl.style.zIndex = "10"; 
     }
 
-    // movement logic for the mothership (boss)
     update(GAME_AREA_PADDING) {
-        if (this.vy === 0) {
-            this.vy = 0.9 * this.scaleFactor; // ensures the boss moves at a consistent proportional speed
-        }
-
-        this.y += this.vy; // apply movement
-        // Reverse direction when touching top/bottom screen edges
-        if (this.y <= GAME_AREA_PADDING || 
-            this.y + this.h >= State.height - GAME_AREA_PADDING) {
-
-            this.vy *= -1; // flip direction
-
-            this.y = clamp(this.y, GAME_AREA_PADDING, State.height - this.h - GAME_AREA_PADDING
-            );
+        // FIX: Patrol Logic (Bounce left/right) instead of flying away
+        this.x += this.vx * State.mothershipDirection;
+        
+        // Check boundaries and reverse direction
+        if (this.x <= 0) {
+            this.x = 0;
+            State.mothershipDirection = 1;
+        } else if (this.x + this.w >= State.width) {
+            this.x = State.width - this.w;
+            State.mothershipDirection = -1;
         }
     }
 
-    // Draws the mothership and updates HP bar visuals
     draw() {
         super.draw();
         const percentage = (this.hp / this.maxHp) * 100;
         this.hpBar.style.width = `${percentage}%`;
-        // Update HP bar position above the mothership
         this.hpEl.style.width = this.w + "px";
         this.hpEl.style.left = this.x + "px";
-        this.hpEl.style.top = (this.y - (20 * this.scaleFactor)) + "px"; 
+        // Ensure HP bar follows the ship, positioned slightly above
+        this.hpEl.style.top = (this.y - (20 * this.scaleFactor)) + "px";
     }
-    // Remove mothership and its HP bar from the screen
+
     remove() {
         super.remove();
-        try { 
-            this.hpEl.remove();
-        } catch (e) {}
+        try { this.hpEl.remove(); } catch (e) {}
     }
+}
+
+function saveScore() {
+    const playerName = State.playerName || 'Pilot'; 
+    const newScoreEntry = {
+        name: playerName,
+        score: State.score,
+    };
+    const scoresJSON = localStorage.getItem('buzzBlastHighScores');
+    let highScores = scoresJSON ? JSON.parse(scoresJSON) : [];
+    
+    // Check if player already exists and only keep their best score
+    const existingPlayerIndex = highScores.findIndex(entry => entry.name.toLowerCase() === playerName.toLowerCase());
+    if (existingPlayerIndex !== -1) {
+        // Only update if the new score is better
+        if (newScoreEntry.score > highScores[existingPlayerIndex].score) {
+            highScores[existingPlayerIndex] = newScoreEntry;
+        }
+    } else {
+        // Add new player
+        highScores.push(newScoreEntry);
+    }
+    
+    highScores.sort((a, b) => b.score - a.score);
+    highScores = highScores.slice(0, 10); 
+    localStorage.setItem('buzzBlastHighScores', JSON.stringify(highScores));
 }
 
 document.getElementById("menu-btn").addEventListener("click", () => {
-    const bgMusic = document.getElementById("bg-music");
-    if (bgMusic && !bgMusic.paused) {
-        bgMusic.pause();
-        bgMusic.currentTime = 0;
-   }
-   window.location.href = "index.html"; 
+    window.location.href = "index.html";
 });
 
-let bgMusic;
-let shootSound;
-let scaleFactor = 1; 
+let bgMusic, shootSound;
+let scaleFactor = 1;
 
-const existingBgAudio = document.getElementById('bg-music');
-if (existingBgAudio && typeof existingBgAudio.play === 'function') {
-    bgMusic = existingBgAudio;
-    try { bgMusic.loop = true; } catch (e) {}
-    try { bgMusic.volume = 0.5; } catch (e) {}
-} else {
-    try {
-        bgMusic = new Audio(ASSETS.bgMusic);
-        bgMusic.loop = true;
-        bgMusic.volume = 0.5;
-    } catch (e) { bgMusic = null; }
-}
+try {
+    bgMusic = new Audio(ASSETS.bgMusic);
+    bgMusic.loop = true;
+    bgMusic.volume = 0.5;
+} catch (e) { bgMusic = null; }
+
 try {
     shootSound = new Audio(ASSETS.shootSound);
     shootSound.volume = 0.7;
 } catch (e) { shootSound = null; }
 
 function calculateScaleFactor() {
-    scaleFactor = State.width / CONFIG.BASE_WIDTH; 
+    scaleFactor = State.width / CONFIG.BASE_WIDTH;
     if (State.player) State.player.updateScale(scaleFactor);
     if (State.mothership) State.mothership.updateScale(scaleFactor);
     State.enemies.forEach(e => e.updateScale(scaleFactor));
-    // note: bullets are short-lived; their size is set when created
 }
 
-function clamp(v, a, b) {
-    return Math.max(a, Math.min(b, v));
-} // keeping a value within a range
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-// to check if two rectangles overlap (used for collision detection)
 function rectsOverlap(a, b) {
-    return !(
-        a.left > b.right || 
-        a.right < b.left ||
-        a.top > b.bottom ||
-        a.bottom < b.top
-    );
-} // returns true if rectangles overlap, false if they don’t
+    return !(a.left > b.right || a.right < b.left || a.top > b.bottom || a.bottom < b.top);
+}
 
 function playShootSound() {
-    if (!shootSound) return; 
-
-    try {
-        shootSound.currentTime = 0; 
-        shootSound.play(); 
-    } catch (e) {
+    if (shootSound) {
+        shootSound.currentTime = 0;
+        shootSound.play().catch(()=>{});
     }
 }
 
-// creates ui elements
 function setupUI() {
-    // remove any previous area
     const prev = document.getElementById("si-game-area");
     if (prev) prev.remove();
-    // create a new game area
     const gameArea = document.createElement("div");
     gameArea.id = "si-game-area";
     gameArea.style.position = "fixed";
     gameArea.style.overflow = "hidden";
-    gameArea.style.zIndex = "999"; // ensures it appears above most page elements
+    gameArea.style.zIndex = "999";
+    document.body.appendChild(gameArea);
+
+    const gameAreaEl = document.getElementById("si-game-area");
+    State.gameArea = gameAreaEl;
+    State.width = gameAreaEl.clientWidth;
+    State.height = gameAreaEl.clientHeight;
+    calculateScaleFactor();
     
-    document.body.appendChild(gameArea);
-    State.gameArea = gameArea;
-    State.width = gameArea.clientWidth; 
-    State.height = gameArea.clientHeight;
-    calculateScaleFactor(); // calculate scale based on new dimensions, to scale objects relative to the base width.
-    document.body.appendChild(gameArea);
+    State.playerName = sessionStorage.getItem('playerName') || 'Pilot'; 
 
     const hud = document.getElementById("hud");
     if (hud) {
         State.hudInfo = hud;
         updateHUD();
     } else {
-        // (Simplified HUD creation remains a fallback)
         const smallHud = document.createElement("div");
         smallHud.id = "hud";
         smallHud.style.position = "absolute";
@@ -364,22 +363,18 @@ function setupUI() {
         smallHud.style.fontSize = "16px";
         smallHud.style.zIndex = "1000";
         smallHud.style.fontFamily = "'Press Start 2P', monospace";
-        smallHud.innerHTML = `<div id="score">Score: 0</div><div id="level">Level: 1</div><div id="lives">Lives: ${State.lives}</div><div id="power">Bomb: Ready (${State.bombsLeft})</div>`;
+        smallHud.innerHTML = ""; 
         document.body.appendChild(smallHud);
         State.hudInfo = smallHud;
+        updateHUD();
     }
-    State.gameArea = gameArea;
-    State.width = gameArea.clientWidth; 
-    State.height = gameArea.clientHeight;
-    showOverlay("Press ENTER / Z / SPACE to start! \n\nCONTROLS:\n • Move: ←, →, ↑, ↓ or W, A, S, D  \n\• Fire: ENTER/Z/Space\n • Bomb: B");
-
+    showOverlay("Press ENTER / Z / SPACE to start! \n\nCONTROLS:\n • Move: ←, → or A, D \n • Fire: ENTER/Z/Space\n • Bomb: B");
 }
 
 let overlayEl = null;
 function showOverlay(text) {
     let overlay = document.getElementById("game-overlay");
     if (!overlay) {
-        // (Overlay creation logic remains the same)
         overlay = document.createElement("div");
         overlay.id = "game-overlay";
         overlay.style.position = "fixed";
@@ -393,12 +388,12 @@ function showOverlay(text) {
         overlay.style.justifyContent = "center";
         overlay.style.alignItems = "center";
         overlay.style.color = "#00ffff";
-        overlay.style.fontFamily = "'Consolas', 'Courier New', monospace";
+        overlay.style.fontFamily = "'Press Start 2P', monospace";
         overlay.style.fontSize = "22px";
         overlay.style.textAlign = "center";
         overlay.style.lineHeight = "1.6";
         overlay.style.textShadow = "0 0 10px rgba(0,255,255,0.8)";
-        overlay.style.zIndex = "99999"; 
+        overlay.style.zIndex = "99999";
         overlay.style.padding = "20px";
         document.body.appendChild(overlay);
     }
@@ -416,77 +411,95 @@ function hideOverlay() {
 }
 
 function createPlayer() {
-    // Remove old player object and its DOM element
     if (State.player) State.player.remove();
     State.player = new Player(State.gameArea);
-    State.player.updateScale(scaleFactor); 
-    State.player.draw(); 
+    State.player.updateScale(scaleFactor);
+    State.player.draw();
 }
 
-function createEnemiesForLevel(level) {
-    State.enemies.forEach(e => e.remove());
-    State.enemies = [];
-    // Remove mothership (if it exists)
-    if (State.mothership) State.mothership.remove();
-    State.mothership = null;
-    enemyDirection = 1; // 1 = moving down, -1 = moving up (for enemy movement logic)
-    const rows = CONFIG.enemyRowsPerLevel[level - 1] || 
-                 CONFIG.enemyRowsPerLevel[CONFIG.enemyRowsPerLevel.length - 1]; 
+function manageMothershipLogic(now) {
+    // 1. Check Spawn
+    if (!State.mothership) {
+        // First spawn check or Respawn check
+        if (State.mothershipDeathTime === 0) State.mothershipDeathTime = now; 
+        
+        if (now - State.mothershipDeathTime > CONFIG.mothershipRespawnDelay) {
+            State.mothership = new Mothership(State.gameArea);
+            State.mothership.updateScale(scaleFactor);
+            State.mothership.draw();
+            State.mothershipDirection = 1; 
+            State.lastMothershipShootTime = now; 
+        }
+    } 
+    // 2. Logic for Alive Mothership
+    else {
+        // Shooting Logic: 5 seconds interval
+        if (now - State.lastMothershipShootTime > CONFIG.mothershipShootInterval) {
+            mothershipShooting();
+            State.lastMothershipShootTime = now;
+        }
+        
+        // Movement Logic
+        const GAME_AREA_PADDING = 10;
+        State.mothership.update(GAME_AREA_PADDING);
+        State.mothership.draw();
+        
+        // No removal check here anymore because it bounces
+    }
+}
+
+function prepareEnemiesForWave(level) {
+    State.spawnQueue = []; 
+    State.enemyDirection = 1; 
+
+    const rows = Math.min(3 + Math.floor(level / 2), CONFIG.enemyMaxRows);
     const cols = CONFIG.enemyCols;
-    // Spacing between enemies (scaled based on screen size)
-    const spacingX = CONFIG.enemySpacingY * scaleFactor;
-    const spacingY = CONFIG.enemySpacingX * scaleFactor; 
-    const baseEnemyStartX = CONFIG.BASE_WIDTH - CONFIG.enemyStartX - (rows * CONFIG.enemySpacingY); 
-    const baseEnemyStartY = CONFIG.enemyStartY;
-    // Nested loops to create the enemy grid
-    for (let r = 0; r < rows; r++) { // for each row
-        for (let c = 0; c < cols; c++) { // for each column
-            // to calculate X and Y positions for this enemy
-            const baseX = baseEnemyStartX + r * CONFIG.enemySpacingY;
-            const baseY = baseEnemyStartY + c * CONFIG.enemySpacingX;
-            const enemy = new Enemy(baseX * scaleFactor, baseY * scaleFactor, State.gameArea);
-            enemy.updateScale(scaleFactor);
-            enemy.draw();
-            State.enemies.push(enemy); // // adding enemy to State.enemies array for game logic
+
+    const spacingX = CONFIG.enemySpacingX * scaleFactor;
+    const spacingY = CONFIG.enemySpacingY * scaleFactor;
+    const enemyW = CONFIG.enemyWidth * scaleFactor;
+    
+    const formationWidth = cols * enemyW + (cols - 1) * (spacingX - enemyW);
+    const startX = (State.width - formationWidth) / 2;
+    const startY = CONFIG.enemyStartY * scaleFactor;
+
+    for (let r = 0; r < rows; r++) {
+        const rowOffset = (r % 2 === 0) ? 0 : (30 * scaleFactor);
+        for (let c = 0; c < cols; c++) {
+            const x = startX + c * spacingX + rowOffset;
+            const y = startY + r * spacingY;
+            State.spawnQueue.push({x, y});
         }
     }
+}
 
-    if (level === 3) {
-        const msBaseW = CONFIG.playerWidth * CONFIG.mothershipSizeFactor;
-        const msBaseH = CONFIG.playerHeight * CONFIG.mothershipSizeFactor * 0.7;
-        // Start X near the right edge of the screen, leaving 30px margin
-        const startX = State.width - (msBaseW * scaleFactor) - (30 * scaleFactor);
-        // Center vertically
-        const startY = (State.height - (msBaseH * scaleFactor)) / 2;
-        // Create mothership object
-        State.mothership = new Mothership(startX, startY, State.gameArea);
-        State.mothership.updateScale(scaleFactor);
-        State.mothership.draw();
+function processSpawnQueue(now) {
+    if (State.spawnQueue.length === 0) return;
+
+    if (now - State.lastSpawnTime > 200) {
+        const data = State.spawnQueue.shift(); 
+        const enemy = new Enemy(data.x, data.y, State.gameArea);
+        enemy.updateScale(scaleFactor);
+        enemy.draw();
+        State.enemies.push(enemy);
+        State.lastSpawnTime = now;
     }
 }
 
-// to create a bullet fired by the player
 function spawnPlayerBullet() {
-    if (State.bullets.length >= CONFIG.maxPlayerBullets) return; // prevent shooting more bullets than the max allowed
+    if (State.bullets.length >= CONFIG.maxPlayerBullets) return;
     if (!State.player) return;
-    const bOffset = 5 * scaleFactor; 
-    // calculate bullet starting X position: right edge of player + offset
-    const x = State.player.x + State.player.w + bOffset;
-    // calculate bullet starting Y position: center bullet vertically on player
-    // state.player.y + State.player.h/2 → center of player vertically
-    // (18 * scaleFactor)/2 → half height of bullet to align center
-    const y = State.player.y + State.player.h / 2 - (18 * scaleFactor) / 2;
-    // Create a new Bullet object at (x, y); true = indicates player bullet
+    const bOffset = 5 * scaleFactor;
+    const x = State.player.x + State.player.w / 2 - (15 * scaleFactor); 
+    const y = State.player.y - bOffset;
     const bullet = new Bullet(x, y, true, State.gameArea);
     bullet.updateScale(scaleFactor);
-    // Draw bullet on the screen
     bullet.draw();
     State.bullets.push(bullet);
     playShootSound();
 }
 
-// Function to create a bullet fired by an enemy
-function spawnEnemyBullet(fromX, fromY, collisionW = 10, collisionH = 18, imgW = 60, imgH = 40) {
+function spawnEnemyBullet(fromX, fromY, collisionW = 14, collisionH = 24, imgW = 30, imgH = 50) {
     const bullet = new Bullet(fromX, fromY, false, State.gameArea);
     bullet.baseW = imgW;
     bullet.baseH = imgH;
@@ -494,7 +507,6 @@ function spawnEnemyBullet(fromX, fromY, collisionW = 10, collisionH = 18, imgW =
     bullet.collisionH = collisionH;
     bullet.updateScale(scaleFactor);
     bullet.draw();
-    // Add bullet to array of active enemy bullets
     State.enemyBullets.push(bullet);
     playShootSound();
 }
@@ -502,60 +514,33 @@ function spawnEnemyBullet(fromX, fromY, collisionW = 10, collisionH = 18, imgW =
 function enemyShooting(now) {
     if (now - State.lastEnemyShootTime < CONFIG.enemyShootIntervalMs) return;
     State.lastEnemyShootTime = now;
-    const alive = State.enemies.filter(e => e.alive);
+    const alive = State.enemies.filter(e => e.alive && e.spawned); 
     if (alive.length === 0) return;
-    const bOffset = 5 * scaleFactor;
-    const xOffset = 6 * scaleFactor; // calculates the bullet’s starting point by taking the enemy’s position, moving left by xOffset = 6 * scaleFactor, and centering vertically with bOffset = 5 * scaleFactor.
+
     const shooter = alive[Math.floor(Math.random() * alive.length)];
-    // Fire horizontally (to the left) from the enemy's left side
-    const sx = shooter.x - xOffset; 
-    const sy = shooter.y + shooter.h / 2 - bOffset; 
+    const collW = 14 * scaleFactor;
+    const sx = shooter.x + shooter.w / 2 - collW / 2;
+    const sy = shooter.y + shooter.h; 
     spawnEnemyBullet(sx, sy);
 }
 
-function mothershipShooting(now) {
+function mothershipShooting() {
     if (!State.mothership) return;
-
-    if (State.mothershipInCooldown) {
-        if (now - State.lastMothershipShootTime >= CONFIG.mothershipBurstGapMs) {
-            State.mothershipInCooldown = false;
-            State.mothershipShotsFired = 0; 
-        } else {
-            return; 
-        }
-    }
-
-    if (now - State.lastMothershipShootTime < CONFIG.mothershipShootIntervalMs) {
-        return; 
-    }
-    
-    if (State.mothershipShotsFired >= CONFIG.mothershipBurstCount) {
-        State.mothershipInCooldown = true;
-        State.lastMothershipShootTime = now; 
-        return; 
-    }
-
-    State.lastMothershipShootTime = now;
-    
     const ms = State.mothership;
-    const bOffset = 5 * scaleFactor;
-    const xOffset = 6 * scaleFactor;
+    
+    // BIG MISSILE
+    const collW = 40 * scaleFactor;
+    const collH = 60 * scaleFactor;
+    const imgW = 60 * scaleFactor;
+    const imgH = 100 * scaleFactor;
 
-    // Fire a single missile from the vertical center
-    const sx = ms.x - xOffset; 
-    const sy = ms.y + ms.h * 0.5 - bOffset; 
-
-    const msImgW = CONFIG.mothershipBurstSize || 60;
-    const msImgH = Math.floor(msImgW * (40/60));
-    const collW = 14; 
-    const collH = 24;
-    spawnEnemyBullet(sx, sy, collW, collH, msImgW, msImgH); 
-
-    State.mothershipShotsFired++; 
+    const sx = ms.x + ms.w / 2 - (imgW/2);
+    const sy = ms.y + ms.h;
+    spawnEnemyBullet(sx, sy, collW, collH, imgW/scaleFactor, imgH/scaleFactor);
 }
 
 function spawnExplosionAt(x, y, baseSize = 60) {
-    const size = baseSize * scaleFactor; 
+    const size = baseSize * scaleFactor;
     const e = document.createElement("img");
     e.src = ASSETS.explosion;
     e.style.position = "absolute";
@@ -566,27 +551,22 @@ function spawnExplosionAt(x, y, baseSize = 60) {
     e.style.pointerEvents = "none";
     e.style.zIndex = "9999";
     State.gameArea.appendChild(e);
-
-    setTimeout(() => {
-        e.remove();
-    }, 500); 
+    setTimeout(() => { e.remove(); }, 500);
 }
 
 function processCollisions() {
-    // Player bullets vs Mothership/Enemies
     for (let i = State.bullets.length - 1; i >= 0; i--) {
         const b = State.bullets[i];
         const bRect = b.getRect();
         let hit = false;
 
-        // Mothership collision
         if (State.mothership) {
             const ms = State.mothership;
             if (rectsOverlap(bRect, ms.getRect())) {
                 ms.hp -= 1;
                 spawnExplosionAt(b.x + b.collisionW / 2, b.y + b.collisionH / 2, 50);
                 b.remove();
-                State.bullets.splice(i, 1); 
+                State.bullets.splice(i, 1);
                 State.mothership.draw();
 
                 if (ms.hp <= 0) {
@@ -594,6 +574,7 @@ function processCollisions() {
                     ms.remove();
                     State.mothership = null;
                     State.score += ms.scoreValue;
+                    State.mothershipDeathTime = performance.now(); 
                     updateHUD();
                 }
                 hit = true;
@@ -601,11 +582,9 @@ function processCollisions() {
         }
         if (hit) continue;
 
-        // Enemy collision
-        for (let j = 0; j < State.enemies.length; j++) { // backward loop 
+        for (let j = 0; j < State.enemies.length; j++) {
             const en = State.enemies[j];
             if (!en.alive) continue;
-            
             if (rectsOverlap(bRect, en.getRect())) {
                 en.alive = false;
                 en.remove();
@@ -615,68 +594,52 @@ function processCollisions() {
                 State.score += en.scoreValue;
                 updateHUD();
                 hit = true;
-                break; 
+                break;
             }
         }
     }
 
-    // Enemy bullets vs Player
-    if (State.player && State.player.alive) {
+    if (State.player) {
         const pRect = State.player.getRect();
         for (let i = State.enemyBullets.length - 1; i >= 0; i--) {
             const eb = State.enemyBullets[i];
-            
             if (rectsOverlap(eb.getRect(), pRect)) {
                 spawnExplosionAt(State.player.x + State.player.w / 2, State.player.y + State.player.h / 2, 50);
                 eb.remove();
                 State.enemyBullets.splice(i, 1);
                 handlePlayerHit();
-            }
-        }
-    }
-
-    if (State.player && State.player.alive) {
-        for (const en of State.enemies) {
-            if (!en.alive) continue;
-            // Check if the enemy's left side is past the player's right edge
-            if (en.x <= State.player.x + State.player.w) {
-                handlePlayerHit(true);
-                break;
+            } else if (eb.y > State.height) { 
+                eb.remove();
+                State.enemyBullets.splice(i, 1);
             }
         }
     }
 }
 
-function handlePlayerHit(enemyReached = false) {
+function handlePlayerHit() {
     if (!State.player) return;
-
     State.lives -= 1;
     updateHUD();
     State.player.el.style.visibility = "hidden";
 
-    // Clear bullets
     State.bullets.forEach(b => b.remove());
     State.enemyBullets.forEach(b => b.remove());
     State.bullets = [];
     State.enemyBullets = [];
 
     if (State.lives <= 0) {
-        showOverlay("GAME OVER — Press ENTER or Z to play again"); 
+        saveScore(); 
+        showOverlay("GAME OVER — Press ENTER to play again");
         State.running = false;
         return;
     }
 
-    // Respawn after short delay
     State.paused = true;
     showOverlay("Respawning...");
     setTimeout(() => {
         if (State.player) {
-            // Reset player position to start (left-center)
-            const startXOffset = 30 * scaleFactor;
-            State.player.x = startXOffset; 
-            State.player.y = (State.height - State.player.h) / 2;
             State.player.el.style.visibility = "visible";
-            State.player.draw();
+            State.player.x = (State.width - State.player.w) / 2;
         }
         State.paused = false;
         hideOverlay();
@@ -685,124 +648,106 @@ function handlePlayerHit(enemyReached = false) {
 
 function updateHUD() {
     if (!State.hudInfo) return;
+    let nameEl = document.getElementById("player-name-display");
     let scoreEl = document.getElementById("score");
-    let levelEl = document.getElementById("level");
     let livesEl = document.getElementById("lives");
     let powerEl = document.getElementById("power");
-    if (!scoreEl || !levelEl || !livesEl || !powerEl) {
-        State.hudInfo.innerHTML = `<div id="score">Score: ${State.score}</div><div id="level">Level: ${State.level}</div><div id="lives">Lives: ${State.lives}</div><div id="power">Bombs: ${State.bombsLeft}</div>`;
+
+    if (!scoreEl || !livesEl || !powerEl) {
+        State.hudInfo.innerHTML = `<div id="player-name-display">Pilot: ${State.playerName}</div><div id="score">Score: ${State.score}</div><div id="lives">Lives: ${State.lives}</div><div id="power">Bomb: Ready (${State.bombsLeft})</div>`;
         return;
     }
+    
+    if (!nameEl) {
+        nameEl = document.createElement("div");
+        nameEl.id = "player-name-display";
+        scoreEl.parentNode.insertBefore(nameEl, scoreEl);
+    }
+    nameEl.textContent = `Pilot: ${State.playerName}`;
     scoreEl.textContent = `Score: ${State.score}`;
-    levelEl.textContent = `Level: ${State.level}`;
     livesEl.textContent = `Lives: ${State.lives}`;
     powerEl.textContent = `Bomb: ${State.bombsLeft > 0 ? 'Ready (' + State.bombsLeft + ')' : 'Used'}`;
+    
+    if (State.bombsLeft > 0) {
+        powerEl.classList.remove('used'); powerEl.classList.add('ready');
+    } else {
+        powerEl.classList.remove('ready'); powerEl.classList.add('used');
+    }
 }
 
 function useBomb() {
     if (State.bombsLeft <= 0) return;
     State.bombsLeft--;
     updateHUD();
-
+    
     const aliveEnemies = State.enemies.filter(e => e.alive);
     const numToKill = Math.ceil(aliveEnemies.length * CONFIG.bombKillPercentage);
-
     const shuffled = aliveEnemies.sort(() => 0.5 - Math.random());
     const enemiesToDie = shuffled.slice(0, numToKill);
 
     enemiesToDie.forEach(en => {
-        en.alive = false;
-        en.remove();
-        spawnExplosionAt(en.x + en.w / 2, en.y + en.h / 2, 70); 
+        en.alive = false; en.remove();
+        spawnExplosionAt(en.x + en.w / 2, en.y + en.h / 2, 70);
         State.score += en.scoreValue;
     });
-    
-    // Mothership is not affected by the bomb but shows an explosion for visual effect
+
     if (State.mothership) {
         spawnExplosionAt(State.mothership.x + State.mothership.w / 2, State.mothership.y + State.mothership.h / 2, 100);
     }
-    
     State.enemies = State.enemies.filter(e => e.alive);
 }
 
-let enemyDirection = 1; // 1 = down, -1 = up
-const GAME_AREA_PADDING = 10; 
-
-function moveMothershipTick() { 
-    if (!State.mothership) return;
-
-    // Movement handled in Mothership.update()
-    State.mothership.update(GAME_AREA_PADDING);
-    State.mothership.draw(); // Update position visually
-}
+const GAME_AREA_PADDING = 10;
 
 function moveEnemiesTick() {
     const alive = State.enemies.filter(e => e.alive);
-    if (alive.length === 0) return; 
+    if (alive.length === 0) return;
 
-    const speed = (CONFIG.enemyMoveSpeedBase + 0.25 * (State.level - 1)) * scaleFactor;
-    const shiftDistance = CONFIG.enemyDropOnEdge * scaleFactor;
+    State.enemyWaveOffset += 0.05;
 
-    // compute bounds of alive enemies
-    let minY = Infinity, maxY = -Infinity;
+    const speed = (CONFIG.enemyMoveSpeedBase + 0.1 * (State.level - 1)) * scaleFactor;
+    const shiftDistance = CONFIG.enemyShiftDown * scaleFactor;
+    
     alive.forEach(e => {
-        minY = Math.min(minY, e.y);
-        maxY = Math.max(maxY, e.y + e.h);
+        if (!e.spawned) {
+            if (e.y < e.targetY) {
+                e.y += 5 * scaleFactor;
+            } else {
+                e.y = e.targetY;
+                e.spawned = true;
+            }
+        }
     });
 
-    // Vertical edge reached (Top/Bottom)
-    if ((enemyDirection === 1 && maxY + speed >= State.height - GAME_AREA_PADDING) ||
-        (enemyDirection === -1 && minY - speed <= GAME_AREA_PADDING)) { 
-        
-        enemyDirection *= -1; // Flip to opposite direction
-        
-        // Shift left (towards player)
-        alive.forEach(e => { 
-            e.x -= shiftDistance; 
-            e.draw(); // Update position visually
+    const formation = alive.filter(e => e.spawned);
+    if (formation.length > 0) {
+        let minX = Infinity, maxX = -Infinity;
+        formation.forEach(e => {
+            const wave = Math.sin(State.enemyWaveOffset) * (10 * e.scaleFactor);
+            minX = Math.min(minX, e.x + wave);
+            maxX = Math.max(maxX, e.x + wave + e.w);
         });
-    } else {
-        // Move vertically
-        alive.forEach(e => {
-            e.y += speed * enemyDirection;
-            e.draw(); // Update position visually
-        });
+
+        if ((State.enemyDirection === 1 && maxX + speed >= State.width - GAME_AREA_PADDING) ||
+            (State.enemyDirection === -1 && minX - speed <= GAME_AREA_PADDING)) {
+            State.enemyDirection *= -1;
+            formation.forEach(e => { e.y += shiftDistance; e.targetY += shiftDistance; });
+        } else {
+            formation.forEach(e => { e.x += speed * State.enemyDirection; e.targetX += speed * State.enemyDirection; });
+        }
     }
+    
+    alive.forEach(e => e.draw());
 }
 
 function startNextLevelTransition() {
     State.level++;
-    if (State.level > 3) {
-        showOverlay("YOU WON! Press ENTER or Z to play again"); 
-        State.running = false;
-        return;
-    }
-    
-    State.paused = true;
-    showOverlay(`Level ${State.level}`);
-    // Clear old bullets
-    State.bullets.forEach(b => b.remove());
-    State.enemyBullets.forEach(b => b.remove());
-    State.bullets = [];
-    State.enemyBullets = [];
-    
-    setTimeout(() => {
-        // Spawn new wave
-        createEnemiesForLevel(State.level);
-        updateHUD();
-
-        setTimeout(() => {
-            State.paused = false;
-            hideOverlay();
-        }, 200); 
-    }, 1000); 
+    prepareEnemiesForWave(State.level);
+    updateHUD();
 }
 
 function checkLevelProgress() {
-    const anyAliveEnemies = State.enemies.some(e => e.alive);
-    const mothershipAlive = !!State.mothership;
-    
-    if (!anyAliveEnemies && !mothershipAlive) {
+    if (State.spawnQueue.length === 0 && !State.enemies.some(e => e.alive)) {
         startNextLevelTransition();
     }
 }
@@ -818,46 +763,31 @@ function gameLoop(now) {
 
     if (State.paused) return;
 
-    // --- 1. Player Update and Draw ---
     const playerSpeedScaled = CONFIG.playerSpeed * scaleFactor;
     if (State.player) {
-        const maxHeight = State.height - State.player.h;
         const maxWidth = State.width - State.player.w;
-        State.player.update(playerSpeedScaled, maxHeight, maxWidth);
+        State.player.update(playerSpeedScaled, 0, maxWidth);
         State.player.draw();
     }
 
-    // --- 2. Bullet Update and Draw ---
     for (let i = State.bullets.length - 1; i >= 0; i--) {
         const b = State.bullets[i];
         b.update();
-        if (b.x > State.width) {
-            b.remove();
-            State.bullets.splice(i, 1);
-            continue;
-        }
+        if (b.y < -50) { b.remove(); State.bullets.splice(i, 1); continue; }
         b.draw();
     }
-
-    // --- 3. Enemy Bullet Update and Draw ---
     for (let i = State.enemyBullets.length - 1; i >= 0; i--) {
         const eb = State.enemyBullets[i];
         eb.update();
-        if (eb.x < -20) {
-            eb.remove();
-            State.enemyBullets.splice(i, 1);
-            continue;
-        }
+        if (eb.y > State.height) { eb.remove(); State.enemyBullets.splice(i, 1); continue; }
         eb.draw();
     }
 
-    // --- 4. Enemy Movement/Shooting ---
-    moveEnemiesTick();
-    if (State.level === 3) moveMothershipTick(); 
+    processSpawnQueue(now); 
+    moveEnemiesTick(); 
+    manageMothershipLogic(now); 
     enemyShooting(now);
-    if (State.level === 3) mothershipShooting(now);
-
-    // --- 5. Collision and Progress Check ---
+    
     processCollisions();
     checkLevelProgress();
     updateHUD();
@@ -865,53 +795,37 @@ function gameLoop(now) {
 
 document.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
-    if (State.keys[k] && !['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'a', 'd', 'w', 's'].includes(k)) return;
-    
+    if (State.keys[k] && !['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'a', 'd', 'w', 's'].includes(k)) {
+         if (k === " " || k === "enter" || k === "z") {} else { return; }
+    }
     State.keys[k] = true;
-
     if (k === " " || k === "enter" || k === "z") {
-        if (!State.running) {
-            startGame(); 
-            return;
-        }
+        if (!State.running) { startGame(); return; }
         if (State.paused) return;
         spawnPlayerBullet();
     } else if (k === "b") {
         if (!State.running || State.paused) return;
         useBomb();
-    } 
+    }
 });
 
-document.addEventListener("keyup", (e) => {
-  State.keys[e.key.toLowerCase()] = false;
-});
+document.addEventListener("keyup", (e) => { State.keys[e.key.toLowerCase()] = false; });
 
 function startGame() {
-    if (State.running) return; 
-
-    if (State.level > 1 || State.lives <= 0) {
-        restartGame(); 
-        setupUI(); 
-    } else {
-        updateHUD();
-    }
-
+    if (State.running) return;
+    if (State.level > 1 || State.lives <= 0) { restartGame(); }
+    setupUI();
     hideOverlay();
     createPlayer();
-    createEnemiesForLevel(State.level);
+    prepareEnemiesForWave(State.level); 
+    State.mothershipDeathTime = performance.now(); 
     State.running = true;
-
-    if (bgMusic && typeof bgMusic.play === 'function') {
-      try { bgMusic.currentTime = 0; bgMusic.play(); } catch (e) { /* play may be blocked */ }
-    }
-
+    if (bgMusic) try { bgMusic.currentTime = 0; bgMusic.play().catch(()=>{}); } catch (e) {}
     requestAnimationFrame(gameLoop);
 }
 
 function restartGame() {
-    State.running = false; 
-
-    // Use object's remove method for cleanup
+    State.running = false;
     State.bullets.forEach(b => b.remove());
     State.enemyBullets.forEach(b => b.remove());
     State.enemies.forEach(en => en.remove());
@@ -921,6 +835,7 @@ function restartGame() {
     State.bullets = [];
     State.enemyBullets = [];
     State.enemies = [];
+    State.spawnQueue = [];
     State.mothership = null;
     State.player = null;
 
@@ -929,9 +844,9 @@ function restartGame() {
     State.level = 1;
     State.paused = false;
     State.bombsLeft = CONFIG.bombCount;
-    enemyDirection = 1;
+    State.enemyDirection = 1;
+    State.enemyWaveOffset = 0;
     State.lastEnemyShootTime = 0;
-    State.lastMothershipShootTime = 0;
     updateHUD();
 }
 
@@ -941,7 +856,6 @@ function initializeGame() {
 }
 
 window.addEventListener("resize", () => {
-    // Standard size calculation remains the same
     State.gameArea = document.getElementById("si-game-area");
     if (State.gameArea) {
         State.width = State.gameArea.clientWidth;
@@ -950,10 +864,7 @@ window.addEventListener("resize", () => {
         State.width = window.innerWidth * 0.9;
         State.height = window.innerHeight * 0.9;
     }
-
-    calculateScaleFactor(); 
-
-    // Redraw all objects to apply new scaled positions and sizes
+    calculateScaleFactor();
     if (State.player) State.player.draw();
     if (State.mothership) State.mothership.draw();
     State.enemies.forEach(e => e.draw());
