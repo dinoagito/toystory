@@ -1,6 +1,6 @@
 body {
     font-family: 'Press Start 2P', monospace;
-    background-image: url("images/toystory-bg.gif");
+    background-image: url("images/toystory-bg.jpeg");
     background-size: cover;
     background-position: left;
     margin: 0;
@@ -76,7 +76,7 @@ h1 {
     font-size: 12px;
 }
 
-#play-btn, #leaderboards-btn, #instructions-btn {
+#play-btn, #leaderboards-btn, #instructions-btn, #story-btn {
     flex: 1 1 45%; 
     min-width: 180px;
 }
