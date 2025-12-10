@@ -60,3 +60,4 @@ function displaySlide() {
         continueBtn.style.display = 'block';
     }
 }
+
