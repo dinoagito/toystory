@@ -1,0 +1,98 @@
+body {
+    font-family: 'Press Start 2P', monospace;
+    background-image: url("images/toystory-bg.jpeg");
+    background-size: cover;
+    background-position: center;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+#story-container {
+    padding: 20px;
+    border-radius: 15px;
+    max-width: 700px;
+    width: 90%;
+    margin: auto;
+    color: rgb(0, 0, 0);
+}
+
+h1 {
+    color: #86e2e2;
+    font-size: clamp(20px, 5vw, 40px);
+    margin-bottom: 15px;
+    text-shadow: 0 0 10px #126fcb;
+}
+
+#story-slide {
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 35px;
+    box-shadow: 0 0 20px #126fcb;
+    border-radius: 10px;
+    margin: 0 auto 15px auto;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #126fcb;
+}
+
+#story-image {
+    display: none;
+    max-width: 280px;
+    max-height: 200px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+#story-text {
+    font-size: clamp(12px, 2.5vw, 18px);
+    line-height: 1.8;
+    color: #043464;
+    margin: 0;
+    font-family: 'Press Start 2P', monospace;
+}
+
+#story-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+#story-buttons button {
+    background-color: #126fcb;
+    color: black;
+    border: 2px solid #07315b;
+    font-family: 'Press Start 2P', monospace;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    transition: 0.2s;
+    cursor: pointer;
+    font-size: 11px;
+    flex: 1 1 45%;
+    min-width: 150px;
+}
+
+#continue-btn {
+    flex: 1 1 100%;
+    min-width: 250px;
+}
+
+#story-buttons button:hover {
+    background-color: #07315b;
+    color: #86e2e2;
+    border-color: #126fcb;
+    box-shadow: 0 0 10px #86e2e2;
+}
+
+@media (max-width: 480px) {
+    html {
+        scroll-behavior: smooth;
+        font-size: 12px;
+    }
+}

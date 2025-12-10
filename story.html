@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Story - Buzz Blast</title>
+    <link rel="stylesheet" href="story.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <audio id="bg-music" src="audios/bg-music.mp3" autoplay loop></audio>
+
+    <div id="story-container">
+        <h1>Buzz Lightyear's Journey</h1>
+        
+        <div id="story-slide">
+            <img id="story-image" src="" alt="Story Image" style="display: none; max-width: 300px; max-height: 250px; margin-bottom: 20px;">
+            <p id="story-text"></p>
+        </div>
+
+        <div id="story-buttons">
+            <button id="continue-btn">Click to Continue</button>
+            <button id="back-btn">Back to Lobby</button>
+        </div>
+    </div>
+
+    <script src="audio-manager.js"></script>
+    <script src="story.js"></script>
+</body>
+</html>
