@@ -38,7 +38,7 @@ const CONFIG = {
     mothershipShootInterval: 5000, 
     
     maxPlayerBullets: 5,
-    bombCount: 1,
+    bombCooldown: 10000,
     bombKillPercentage: 0.7
 };
 
@@ -63,7 +63,7 @@ const State = {
     running: false,
     paused: false,
     lastEnemyShootTime: 0,
-    bombsLeft: CONFIG.bombCount,
+    lastBombTime: 0,
     keys: {},
     
     enemyDirection: 1, 
@@ -452,24 +452,12 @@ function prepareEnemiesForWave(level) {
     State.spawnQueue = []; 
     State.enemyDirection = 1; 
 
-    const rows = Math.min(3 + Math.floor(level / 2), CONFIG.enemyMaxRows);
-    const cols = CONFIG.enemyCols;
-
-    const spacingX = CONFIG.enemySpacingX * scaleFactor;
-    const spacingY = CONFIG.enemySpacingY * scaleFactor;
-    const enemyW = CONFIG.enemyWidth * scaleFactor;
+    const totalEnemies = 15 + (level * 3);
     
-    const formationWidth = cols * enemyW + (cols - 1) * (spacingX - enemyW);
-    const startX = (State.width - formationWidth) / 2;
-    const startY = CONFIG.enemyStartY * scaleFactor;
-
-    for (let r = 0; r < rows; r++) {
-        const rowOffset = (r % 2 === 0) ? 0 : (30 * scaleFactor);
-        for (let c = 0; c < cols; c++) {
-            const x = startX + c * spacingX + rowOffset;
-            const y = startY + r * spacingY;
-            State.spawnQueue.push({x, y});
-        }
+    for (let i = 0; i < totalEnemies; i++) {
+        const x = Math.random() * (State.width - CONFIG.enemyWidth * scaleFactor);
+        const y = Math.random() * (State.height * 0.4);
+        State.spawnQueue.push({x, y});
     }
 }
 
@@ -654,7 +642,7 @@ function updateHUD() {
     let powerEl = document.getElementById("power");
 
     if (!scoreEl || !livesEl || !powerEl) {
-        State.hudInfo.innerHTML = `<div id="player-name-display">Pilot: ${State.playerName}</div><div id="score">Score: ${State.score}</div><div id="lives">Lives: ${State.lives}</div><div id="power">Bomb: Ready (${State.bombsLeft})</div>`;
+        State.hudInfo.innerHTML = `<div id="player-name-display">Name: ${State.playerName}</div><div id="score">Score: ${State.score}</div><div id="lives">Lives: ${State.lives}</div><div id="power">Bomb: Ready</div>`;
         return;
     }
     
@@ -663,21 +651,26 @@ function updateHUD() {
         nameEl.id = "player-name-display";
         scoreEl.parentNode.insertBefore(nameEl, scoreEl);
     }
-    nameEl.textContent = `Pilot: ${State.playerName}`;
+    nameEl.textContent = `Name: ${State.playerName}`;
     scoreEl.textContent = `Score: ${State.score}`;
     livesEl.textContent = `Lives: ${State.lives}`;
-    powerEl.textContent = `Bomb: ${State.bombsLeft > 0 ? 'Ready (' + State.bombsLeft + ')' : 'Used'}`;
     
-    if (State.bombsLeft > 0) {
+    const timeSinceLastBomb = performance.now() - State.lastBombTime;
+    const bombReady = timeSinceLastBomb >= CONFIG.bombCooldown;
+    powerEl.textContent = bombReady ? 'Bomb: Ready' : `Bomb: ${Math.ceil((CONFIG.bombCooldown - timeSinceLastBomb) / 1000)}s`;
+    
+    if (bombReady) {
         powerEl.classList.remove('used'); powerEl.classList.add('ready');
     } else {
         powerEl.classList.remove('ready'); powerEl.classList.add('used');
     }
 }
 
-function useBomb() {
-    if (State.bombsLeft <= 0) return;
-    State.bombsLeft--;
+function useBomb(now) {
+    const timeSinceLastBomb = now - State.lastBombTime;
+    if (timeSinceLastBomb < CONFIG.bombCooldown) return;
+    
+    State.lastBombTime = now;
     updateHUD();
     
     const aliveEnemies = State.enemies.filter(e => e.alive);
@@ -805,7 +798,7 @@ document.addEventListener("keydown", (e) => {
         spawnPlayerBullet();
     } else if (k === "b") {
         if (!State.running || State.paused) return;
-        useBomb();
+        useBomb(performance.now());
     }
 });
 
@@ -843,7 +836,7 @@ function restartGame() {
     State.lives = CONFIG.playerStartLives;
     State.level = 1;
     State.paused = false;
-    State.bombsLeft = CONFIG.bombCount;
+    State.lastBombTime = 0;
     State.enemyDirection = 1;
     State.enemyWaveOffset = 0;
     State.lastEnemyShootTime = 0;
