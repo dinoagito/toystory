@@ -92,7 +92,6 @@ h1 {
     box-shadow: 0 0 10px #86e2e2;
 }
 
-/* Zoom Overlay */
 #image-zoom-overlay {
     display: none;
     position: fixed;
@@ -111,7 +110,6 @@ h1 {
     max-width: 90vw;
     max-height: 90vh;
     border-radius: 10px;
-    box-shadow: 0 0 20px white;
     animation: zoomIn 0.25s ease;
 }
 
@@ -126,3 +124,4 @@ h1 {
         font-size: 12px;
     }
 }
+
