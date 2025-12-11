@@ -48,6 +48,7 @@ h1 {
     height: auto;
     margin-bottom: 15px;
     border-radius: 5px;
+    cursor: zoom-in;
 }
 
 #story-text {
@@ -91,10 +92,37 @@ h1 {
     box-shadow: 0 0 10px #86e2e2;
 }
 
+/* Zoom Overlay */
+#image-zoom-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(3px);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+#image-zoom-overlay img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 10px;
+    box-shadow: 0 0 20px white;
+    animation: zoomIn 0.25s ease;
+}
+
+@keyframes zoomIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
 @media (max-width: 480px) {
     html {
         scroll-behavior: smooth;
         font-size: 12px;
     }
 }
-
