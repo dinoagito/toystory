@@ -31,6 +31,19 @@ document.addEventListener('DOMContentLoaded', function() {
             continueBtn.click();
         }
     });
+
+    const storyImage = document.getElementById("story-image");
+    const zoomOverlay = document.getElementById("image-zoom-overlay");
+    const zoomedImage = document.getElementById("zoomed-image");
+
+    storyImage.addEventListener("click", () => {
+        zoomedImage.src = storyImage.src;
+        zoomOverlay.style.display = "flex";
+    });
+
+    zoomOverlay.addEventListener("click", () => {
+        zoomOverlay.style.display = "none";
+    });
 });
 
 function displaySlide() {
@@ -48,7 +61,7 @@ function displaySlide() {
         storyImage.style.display = 'none';
     }
     
-    // On last slide, hide the Continue button
+    // Hide continue button on last slide
     if (currentSlide === storySlides.length - 1) {
         continueBtn.style.display = 'none';
     } else {
