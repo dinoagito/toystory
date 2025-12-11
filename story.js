@@ -11,26 +11,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const backBtn = document.getElementById('back-btn');
     const storyText = document.getElementById('story-text');
 
-    // Display first slide
     displaySlide();
 
-    // Continue button
     continueBtn.addEventListener('click', function() {
         currentSlide++;
         if (currentSlide < storySlides.length) {
             displaySlide();
         } else {
-            // Story ended, go to lobby
             window.location.href = 'index.html';
         }
     });
 
-    // Back button
     backBtn.addEventListener('click', function() {
         window.location.href = 'index.html';
     });
 
-    // Allow keyboard navigation
     document.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             continueBtn.click();
@@ -60,4 +55,3 @@ function displaySlide() {
         continueBtn.style.display = 'block';
     }
 }
-
